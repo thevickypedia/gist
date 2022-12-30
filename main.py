@@ -1,9 +1,20 @@
+import logging
 import os
+import shutil
 
 import dotenv
 import requests
+from git import Repo
 
 dotenv.load_dotenv(dotenv_path=".env")
+
+FORMATTER = logging.Formatter(datefmt='%b-%d-%Y %I:%M:%S %p',
+                              fmt='%(asctime)s - %(levelname)s - [%(module)s:%(lineno)d] - %(funcName)s - %(message)s')
+LOGGER = logging.getLogger(__name__)
+HANDLER = logging.StreamHandler()
+HANDLER.setFormatter(fmt=FORMATTER)
+LOGGER.addHandler(hdlr=HANDLER)
+LOGGER.setLevel(level=logging.DEBUG)
 
 BASE_URL = "https://api.github.com"
 
@@ -28,10 +39,25 @@ def get_all_gists(per_page: int = None, page: int = None):
     if response.ok:
         gists = response.json()
         for gist in gists:
+            LOGGER.info("%s: %s" % (list(gist.get('files').keys())[0], gist.get('description')))
             yield gist
-            # print("%s: %s - %s" % (list(gist.get('files').keys())[0], gist.get('description'), gist.get('html_url')))
-            # os.system("git clone %s" % gist.get('html_url'))
 
 
-if __name__ == '__main__':
-    print(list(get_gists_by_user()))
+def clone_repo_by_filename(filename: str):
+    repo = Repo()
+    for gist in get_all_gists():
+        if filename in list(gist.get('files').keys()):
+            clone = gist.get('html_url').split('/')[-1]
+            if os.path.isdir(clone):
+                LOGGER.warning("Deleting existing gist %s" % clone)
+                shutil.rmtree(clone)
+            LOGGER.info("Cloning to %s" % clone)
+            repo.clone_from(url=gist.get('html_url'), to_path=clone)
+
+
+def gist_push(repo_path: str, commit_msg: str):
+    repo = Repo(path=repo_path)
+    repo.git.add(update=True)
+    repo.index.commit(message=commit_msg)
+    origin = repo.remote(name='origin')
+    origin.push()
