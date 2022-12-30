@@ -29,7 +29,7 @@ def get_gists_by_user(username: str = os.environ.get('GIT_USER')):
         response.raise_for_status()
 
 
-def get_all_gists(per_page: int = None, page: int = None):
+def get_all_gists(per_page: int = None, page: int = None, log: bool = True):
     headers = {
         'Accept': 'application/vnd.github+json',
         'Authorization': 'Bearer %s' % os.environ.get('GIT_PASS'),
@@ -39,13 +39,15 @@ def get_all_gists(per_page: int = None, page: int = None):
     if response.ok:
         gists = response.json()
         for gist in gists:
-            LOGGER.info("%s: %s" % (list(gist.get('files').keys())[0], gist.get('description')))
+            if log:
+                LOGGER.info("%s: %s" % (list(gist.get('files').keys())[0], gist.get('description')))
             yield gist
 
 
 def clone_repo_by_filename(filename: str):
     repo = Repo()
-    for gist in get_all_gists():
+    _cloned = False
+    for gist in get_all_gists(log=False):
         if filename in list(gist.get('files').keys()):
             clone = gist.get('html_url').split('/')[-1]
             if os.path.isdir(clone):
@@ -53,11 +55,17 @@ def clone_repo_by_filename(filename: str):
                 shutil.rmtree(clone)
             LOGGER.info("Cloning to %s" % clone)
             repo.clone_from(url=gist.get('html_url'), to_path=clone)
+            _cloned = True
+    if not _cloned:
+        LOGGER.warning("No repo with '%s' file was found" % filename)
 
 
-def gist_push(repo_path: str, commit_msg: str):
+def gist_push(repo_path: str, commit_msg: str, delete_after: bool = False):
     repo = Repo(path=repo_path)
     repo.git.add(update=True)
     repo.index.commit(message=commit_msg)
     origin = repo.remote(name='origin')
     origin.push()
+    if delete_after:
+        LOGGER.info("Deleting repo %s" % repo_path)
+        shutil.rmtree(repo_path)
