@@ -18,8 +18,11 @@ LOGGER.setLevel(level=logging.DEBUG)
 
 BASE_URL = "https://api.github.com"
 
+GIT_USER = os.environ.get('GIT_USER') or os.environ.get('git_user')
+GIT_PASS = os.environ.get('GIT_PASS') or os.environ.get('git_pass')
 
-def get_gists_by_user(username: str = os.environ.get('GIT_USER')):
+
+def get_gists_by_user(username: str = GIT_USER):
     response = requests.get(url="%s/users/%s/gists" % (BASE_URL, username))
     if response.ok:
         gists = response.json()
@@ -32,7 +35,7 @@ def get_gists_by_user(username: str = os.environ.get('GIT_USER')):
 def get_all_gists(per_page: int = None, page: int = None, log: bool = True):
     headers = {
         'Accept': 'application/vnd.github+json',
-        'Authorization': 'Bearer %s' % os.environ.get('GIT_PASS'),
+        'Authorization': 'Bearer %s' % GIT_PASS,
         'X-GitHub-Api-Version': '2022-11-28',
     }
     response = requests.get('%s/gists' % BASE_URL, headers=headers, params={"per_page": per_page, "page": page})
@@ -44,7 +47,7 @@ def get_all_gists(per_page: int = None, page: int = None, log: bool = True):
             yield gist
 
 
-def clone_repo_by_filename(filename: str):
+def clone_gist_by_filename(filename: str):
     repo = Repo()
     _cloned = False
     for gist in get_all_gists(log=False):
