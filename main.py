@@ -63,12 +63,13 @@ def clone_gist_by_filename(filename: str):
         LOGGER.warning("No repo with '%s' file was found" % filename)
 
 
-def gist_push(repo_path: str, commit_msg: str, delete_after: bool = False):
+def gist_push(repo_path: str, commit_msg: str, delete_after: bool = True):
     repo = Repo(path=repo_path)
     repo.git.add(update=True)
     repo.index.commit(message=commit_msg)
     origin = repo.remote(name='origin')
     origin.push()
+    LOGGER.info("Changes pushed to origin")
     if delete_after:
         LOGGER.info("Deleting repo %s" % repo_path)
         shutil.rmtree(repo_path)
